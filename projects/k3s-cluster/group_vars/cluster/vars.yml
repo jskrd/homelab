@@ -1,2 +1,7 @@
 ---
 k3s_server_url: "https://k3s-1.home.arpa:6443"
+
+k3s_service_accounts:
+  - name: admin
+    namespace: kube-system
+    cluster_role: cluster-admin

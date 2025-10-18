@@ -4,3 +4,8 @@
   roles:
     - cgroups
     - k3s
+
+- hosts: control_plane
+  become: yes
+  roles:
+    - k3s-access

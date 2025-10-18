@@ -1,0 +1,173 @@
+---
+- name: Install Python kubernetes library
+  apt:
+    name: python3-kubernetes
+    state: present
+    update_cache: yes
+
+- name: Get all managed service accounts
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    label_selectors:
+      - managed-by=ansible
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  register: existing_service_accounts
+
+- name: Get all managed cluster role bindings
+  kubernetes.core.k8s_info:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    label_selectors:
+      - managed-by=ansible
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  register: existing_bindings
+
+- name: Get all managed token secrets
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    label_selectors:
+      - managed-by=ansible
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  register: existing_secrets
+
+- name: Build list of desired service account names
+  set_fact:
+    desired_sa_names: "{{ k3s_service_accounts | map(attribute='name') | list }}"
+
+- name: Delete orphaned service accounts
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    state: absent
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ existing_service_accounts.resources | default([]) }}"
+  when: item.metadata.name not in desired_sa_names
+  loop_control:
+    label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+- name: Delete orphaned cluster role bindings
+  kubernetes.core.k8s:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    name: "{{ item.metadata.name }}"
+    state: absent
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ existing_bindings.resources | default([]) }}"
+  when: item.metadata.name.replace('-binding', '') not in desired_sa_names
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Delete orphaned token secrets
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    state: absent
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ existing_secrets.resources | default([]) }}"
+  when: item.metadata.name.replace('-token', '') not in desired_sa_names
+  loop_control:
+    label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+- name: Create service accounts
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ item.namespace }}"
+        labels:
+          managed-by: ansible
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ k3s_service_accounts }}"
+
+- name: Create cluster role bindings
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: "{{ item.name }}-binding"
+        labels:
+          managed-by: ansible
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: "{{ item.cluster_role }}"
+      subjects:
+        - kind: ServiceAccount
+          name: "{{ item.name }}"
+          namespace: "{{ item.namespace }}"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ k3s_service_accounts }}"
+
+- name: Create token secrets for service accounts
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ item.name }}-token"
+        namespace: "{{ item.namespace }}"
+        labels:
+          managed-by: ansible
+        annotations:
+          kubernetes.io/service-account.name: "{{ item.name }}"
+      type: kubernetes.io/service-account-token
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  loop: "{{ k3s_service_accounts }}"
+
+- name: Wait for tokens to be generated
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ item.name }}-token"
+    namespace: "{{ item.namespace }}"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  register: token_secrets
+  until: token_secrets.resources[0].data.token is defined
+  retries: 10
+  delay: 2
+  loop: "{{ k3s_service_accounts }}"
+
+- name: Get service account tokens
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ item.name }}-token"
+    namespace: "{{ item.namespace }}"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  register: service_account_tokens
+  loop: "{{ k3s_service_accounts }}"
+
+- name: Get cluster CA certificate
+  slurp:
+    src: /var/lib/rancher/k3s/server/tls/server-ca.crt
+  register: cluster_ca
+
+- name: Create kubeconfig output directory
+  file:
+    path: "{{ playbook_dir }}/kubeconfigs"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Generate kubeconfig files
+  template:
+    src: kubeconfig.j2
+    dest: "{{ playbook_dir }}/kubeconfigs/{{ item.item.name }}-kubeconfig.yaml"
+    mode: '0600'
+  loop: "{{ service_account_tokens.results }}"
+  delegate_to: localhost
+  become: false
