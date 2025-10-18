@@ -1,5 +1,13 @@
 # K3s Cluster
 
+## Prerequisites
+
+Install Ansible (macOS):
+
+```bash
+brew install ansible
+```
+
 ## Usage
 
 Deploy K3s cluster:
