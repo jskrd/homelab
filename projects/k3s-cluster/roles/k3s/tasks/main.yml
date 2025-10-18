@@ -1,0 +1,59 @@
+---
+- name: Create K3s config directory
+  file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: '0755'
+
+- name: Template K3s control plane config
+  template:
+    src: control-plane-config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    mode: '0644'
+  when: "'control_plane' in group_names"
+  register: control_plane_config
+
+- name: Template K3s worker config
+  template:
+    src: worker-config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    mode: '0644'
+  when: "'worker' in group_names"
+  register: worker_config
+
+- name: Install K3s on control plane
+  shell: curl -sfL https://get.k3s.io | sh -s - server
+  args:
+    creates: /usr/local/bin/k3s
+  when: "'control_plane' in group_names"
+
+- name: Wait for K3s control plane to be ready
+  wait_for:
+    port: 6443
+    delay: 5
+    timeout: 60
+  when: "'control_plane' in group_names"
+
+- name: Install K3s on workers
+  shell: curl -sfL https://get.k3s.io | sh -s - agent
+  args:
+    creates: /usr/local/bin/k3s
+  when: "'worker' in group_names"
+
+- name: Restart K3s server if config changed
+  systemd:
+    name: k3s
+    state: restarted
+  when:
+    - "'control_plane' in group_names"
+    - control_plane_config is defined
+    - control_plane_config.changed
+
+- name: Restart K3s agent if config changed
+  systemd:
+    name: k3s-agent
+    state: restarted
+  when:
+    - "'worker' in group_names"
+    - worker_config is defined
+    - worker_config.changed
