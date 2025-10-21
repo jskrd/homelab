@@ -8,5 +8,6 @@
 - hosts: control_plane
   become: yes
   roles:
+    - python-kubernetes
     - helm
     - k3s-access
