@@ -1,0 +1,11 @@
+---
+- name: Download Helm installer
+  get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get-helm-3.sh
+    mode: '0700'
+
+- name: Install/Update Helm
+  command: /tmp/get-helm-3.sh
+  register: helm_install
+  changed_when: "'helm is already' not in helm_install.stdout"

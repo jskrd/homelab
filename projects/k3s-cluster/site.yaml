@@ -8,4 +8,5 @@
 - hosts: control_plane
   become: yes
   roles:
+    - helm
     - k3s-access
