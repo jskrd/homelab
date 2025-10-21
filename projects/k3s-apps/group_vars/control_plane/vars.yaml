@@ -1,0 +1,6 @@
+---
+minio_helm_chart_version: 5.4.0
+minio_namespace: minio
+minio_replicas: 2
+minio_root_user: minio
+minio_storage_size: 10Gi

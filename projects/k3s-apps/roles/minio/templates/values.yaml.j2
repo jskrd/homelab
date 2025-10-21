@@ -1,0 +1,19 @@
+---
+replicas: {{ minio_replicas }}
+
+existingSecret: minio-credentials
+
+persistence:
+  enabled: true
+  size: {{ minio_storage_size }}
+
+securityContext:
+  enabled: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m

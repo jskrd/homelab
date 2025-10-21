@@ -1,0 +1,49 @@
+---
+- name: Add MinIO Helm repository
+  command: helm repo add minio https://charts.min.io/
+  register: helm_repo_add
+  failed_when: helm_repo_add.rc != 0 and 'already exists' not in helm_repo_add.stderr
+  changed_when: helm_repo_add.rc == 0
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+
+- name: Create MinIO namespace
+  kubernetes.core.k8s:
+    name: "{{ minio_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+- name: Create MinIO credentials secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: minio-credentials
+        namespace: "{{ minio_namespace }}"
+      type: Opaque
+      stringData:
+        rootUser: "{{ minio_root_user }}"
+        rootPassword: "{{ minio_root_password }}"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+- name: Template MinIO Helm values
+  template:
+    src: values.yaml.j2
+    dest: /tmp/minio-values.yaml
+    mode: '0600'
+
+- name: Deploy MinIO using Helm
+  command: >
+    helm upgrade --install minio minio/minio
+    --namespace {{ minio_namespace }}
+    --version {{ minio_helm_chart_version }}
+    --values /tmp/minio-values.yaml
+    --kubeconfig /etc/rancher/k3s/k3s.yaml
+  register: helm_install
+  changed_when: "'has been upgraded' in helm_install.stdout or 'has been installed' in helm_install.stdout"
