@@ -17,3 +17,21 @@ resources:
   requests:
     memory: 512Mi
     cpu: 250m
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  hosts:
+    - {{ minio_ingress_host }}
+  tls: []
+
+consoleIngress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  hosts:
+    - {{ minio_console_ingress_host }}
+  tls: []
