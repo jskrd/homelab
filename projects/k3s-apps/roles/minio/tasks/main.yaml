@@ -11,7 +11,7 @@
 
 - name: Create MinIO namespace
   kubernetes.core.k8s:
-    name: "{{ minio_namespace }}"
+    name: minio
     api_version: v1
     kind: Namespace
     state: present
@@ -25,10 +25,10 @@
       kind: Secret
       metadata:
         name: minio-credentials
-        namespace: "{{ minio_namespace }}"
+        namespace: minio
       type: Opaque
       stringData:
-        rootUser: "{{ minio_root_user }}"
+        rootUser: minio
         rootPassword: "{{ minio_root_password }}"
     kubeconfig: /etc/rancher/k3s/k3s.yaml
 
@@ -36,13 +36,13 @@
   template:
     src: values.yaml.j2
     dest: /tmp/minio-values.yaml
-    mode: '0600'
+    mode: "0600"
 
 - name: Deploy MinIO using Helm
   command: >
     helm upgrade --install minio minio/minio
-    --namespace {{ minio_namespace }}
-    --version {{ minio_helm_chart_version }}
+    --namespace minio
+    --version 5.4.0
     --values /tmp/minio-values.yaml
     --kubeconfig /etc/rancher/k3s/k3s.yaml
   register: helm_install

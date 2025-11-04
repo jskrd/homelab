@@ -1,11 +1,11 @@
 ---
-replicas: {{ minio_replicas }}
+replicas: 2
 
 existingSecret: minio-credentials
 
 persistence:
   enabled: true
-  size: {{ minio_storage_size }}
+  size: 10Gi
 
 securityContext:
   enabled: true
@@ -24,7 +24,7 @@ ingress:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
   hosts:
-    - {{ minio_ingress_host }}
+    - minio-api.home.arpa
   tls: []
 
 consoleIngress:
@@ -33,5 +33,5 @@ consoleIngress:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
   hosts:
-    - {{ minio_console_ingress_host }}
+    - minio.home.arpa
   tls: []
