@@ -44,7 +44,7 @@ openssl rand -base64 32
 2. Create encrypted vault file:
 
 ```bash
-ansible-vault create group_vars/cluster/vault.yml
+ansible-vault create group_vars/cluster/vault.yaml
 ```
 
 Add the token:
@@ -61,7 +61,7 @@ k3s_token: "your-generated-token-here"
 Deploy K3s cluster and create service accounts:
 
 ```bash
-ansible-playbook -i hosts site.yml --ask-vault-pass
+ansible-playbook -i hosts site.yaml --ask-vault-pass
 ```
 
 After deployment, kubeconfig files are generated in `kubeconfigs/` (gitignored). Copy to your kubectl config:
@@ -82,19 +82,19 @@ kubectl get nodes
 Update all cluster nodes:
 
 ```bash
-ansible-playbook -i hosts system-update.yml --ask-vault-pass
+ansible-playbook -i hosts system-update.yaml --ask-vault-pass
 ```
 
 ### Modify Configuration
 
-Edit K3s configuration or service accounts in `group_vars/cluster/vars.yml`, or edit secrets:
+Edit K3s configuration or service accounts in `group_vars/cluster/vars.yaml`, or edit secrets:
 
 ```bash
-ansible-vault edit group_vars/cluster/vault.yml
+ansible-vault edit group_vars/cluster/vault.yaml
 ```
 
 Re-run playbook to apply changes:
 
 ```bash
-ansible-playbook -i hosts site.yml --ask-vault-pass
+ansible-playbook -i hosts site.yaml --ask-vault-pass
 ```
