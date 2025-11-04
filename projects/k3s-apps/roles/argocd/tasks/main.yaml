@@ -1,0 +1,33 @@
+---
+- name: Add Argo CD Helm repository
+  command: helm repo add argo https://argoproj.github.io/argo-helm
+  register: helm_repo_add
+  failed_when: helm_repo_add.rc != 0 and 'already exists' not in helm_repo_add.stderr
+  changed_when: helm_repo_add.rc == 0
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+
+- name: Ensure Argo CD namespace exists
+  kubernetes.core.k8s:
+    kind: Namespace
+    name: argocd
+    state: present
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+- name: Render Argo CD Helm values
+  template:
+    src: values.yaml.j2
+    dest: /tmp/argocd-values.yaml
+    mode: "0600"
+
+- name: Deploy Argo CD via Helm
+  command: >
+    helm upgrade --install argocd argo/argo-cd
+    --namespace argocd
+    --version 9.0.6
+    --values /tmp/argocd-values.yaml
+    --kubeconfig /etc/rancher/k3s/k3s.yaml
+  register: helm_install
+  changed_when: "'has been upgraded' in helm_install.stdout or 'has been installed' in helm_install.stdout"

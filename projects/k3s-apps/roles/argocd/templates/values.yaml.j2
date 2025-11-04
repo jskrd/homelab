@@ -1,0 +1,24 @@
+controller:
+  replicas: 1
+
+dex:
+  enabled: false
+
+server:
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostname: argocd.home.arpa
+    path: /
+    pathType: Prefix
+
+configs:
+  params:
+    server.insecure: true
+  secret:
+    argocdServerAdminPassword: {{ argocd_admin_password }}
+
+redis-ha:
+  enabled: false
