@@ -2,5 +2,5 @@
 - hosts: control_plane
   become: yes
   roles:
-    - minio
     - argocd
+    - minio
